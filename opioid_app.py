@@ -7,67 +7,35 @@ import seaborn as sns
 import numpy as np
 
 from sqlalchemy import create_engine
+# getting data from git
 
-connection_prescribers = "postgres://postgres:postgres@localhost:5432/prescribers"
-engine = create_engine(connection_prescribers)
-query_spec = '''
-SELECT 
-	prescriber.specialty_description,
-	SUM(prescription.total_claim_count) AS total_claim
-FROM prescriber INNER JOIN prescription
-ON prescriber.npi = prescription.npi
-WHERE prescription.drug_name IN (
-	SELECT drug_name
-	FROM drug
-	WHERE drug.opioid_drug_flag = 'Y'
-	AND drug.drug_name='OXYCONTIN'
-)
-GROUP BY prescriber.specialty_description
-ORDER BY total_claim DESC;
-'''
-result = engine.execute(query_spec)
-query_city = '''
-SELECT 
-	prescriber.nppes_provider_city,
-	SUM(prescription.total_claim_count) AS total_claim
-FROM prescriber INNER JOIN prescription
-ON prescriber.npi = prescription.npi
-WHERE prescription.drug_name IN (
-	SELECT drug_name
-	FROM drug
-	WHERE drug.opioid_drug_flag = 'Y'
-	AND drug.drug_name='OXYCONTIN'
-)
-GROUP BY prescriber.nppes_provider_city
-ORDER BY total_claim DESC;
-'''
+specialty = pd.read_csv('specialty_data.csv')
+city = pd.read_csv('city_data.csv')
+opioid_zip_codes = pd.read_csv('opioid_zip_codes.csv')
 
-result = engine.execute(query_city)
-
-prescribers = pd.read_sql(query_spec, con = engine)
-city_opioid = pd.read_sql(query_city,con = engine)
-
-
+# start of the application
 st.header('question 1')
-st.subheader('Who are the top opioid prescribers for the state of Tennessee?')
+st.subheader('Which Tennessee counties had a disproportionately high number of opioid prescriptions?')
 
 st.header('question 2')
 st.subheader('Who are the top opioid prescribers for the state of Tennessee?')
-st.dataframe(prescribers)
-fig = px.bar(prescribers, x='total_claim', y='specialty_description',
-title='Most prescribed Methodone by Specialty')
+
+fig = px.bar(specialty, x='total_claim', y='specialty_description',
+title='Most prescribed Methadone by Specialty')
 fig
-st.dataframe(city_opioid)
-fig1 = px.bar(city_opioid, x='total_claim', y='nppes_provider_city',
-title='Most prescribed Methodone by City')
+
+fig1 = px.bar(city, x='total_claim', y='nppes_provider_city',
+title='Most prescribed Methadone by City')
 fig1
+
+st.dataframe(opioid_zip_codes)
 
 
 st.header('question 3')
-st.subheader('Who are the top opioid prescribers for the state of Tennessee?')
+st.subheader('What did the trend in overdose deaths due to opioids look like in Tennessee from 2015 to 2018?')
 
 st.header('question 4')
-st.subheader('Who are the top opioid prescribers for the state of Tennessee?')
+st.subheader('Is there an association between rates of opioid prescriptions and overdose deaths by county?')
 
 st.header('question 5')
-st.subheader('Who are the top opioid prescribers for the state of Tennessee?')
+st.subheader('Is there any association between a particular type of opioid and number of overdose deaths?')
