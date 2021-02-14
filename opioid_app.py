@@ -5,26 +5,41 @@ import matplotlib.pyplot as plt
 import plotly.express as px
 import seaborn as sns
 import numpy as np
+import plotly.graph_objects as go
 
 from sqlalchemy import create_engine
 # getting data from git
+url ='https://raw.githubusercontent.com/nss-data-science-cohort-4/sql_rx_project-mmm/mg_branch/specialty_data.csv'
 
-specialty = pd.read_csv('specialty_data.csv')
+url1 ='https://raw.githubusercontent.com/nss-data-science-cohort-4/sql_rx_project-mmm/maeva/data/opioid_deaths_yearly_trend_tn.csv'
+url2 ='https://raw.githubusercontent.com/nss-data-science-cohort-4/sql_rx_project-mmm/maeva/data/opioid_prescriptions_tn.csv'
+url3 = 'https://raw.githubusercontent.com/nss-data-science-cohort-4/sql_rx_project-mmm/mg_branch/city_opioid.csv'
+#url4
+
+# converting csv 
+specialty = pd.read_csv(url)
 opioid_zip_codes = pd.read_csv('opioid_zip_codes.csv')
+opioid_prescriptions_tn = pd.read_csv(url2)
+opioid_deaths_yearly_trend_tn = pd.read_csv(url1)
+test = pd.read_csv(url3)
 
 # start of the application visuals
 # question 1
 st.header('question 1')
 st.subheader('Which Tennessee counties had a disproportionately high number of opioid prescriptions?')
+st.dataframe(opioid_prescriptions_tn)
+
+
+
+
 # question 1
 st.header('question 2')
 st.subheader('Who are the top opioid prescribers for the state of Tennessee?')
-# bar plotting perscriptions by specialty
-fig = px.bar(specialty, x='total_claim', y='specialty_description',
-title='Most prescribed Methadone by Specialty')
-fig
+figed = px.sunburst(test, path=['nppes_provider_city', 'drug_name'], values='total_claim')
+figed
 
-st.dataframe(opioid_zip_codes)
+# bar plotting perscriptions by specialty
+
 fig_zip = px.scatter_mapbox(opioid_zip_codes, lat="latitude", lon="longitude",color='total_claim', size="total_claim",
                   color_continuous_scale=px.colors.cyclical.Edge, size_max=15, zoom=5,
                   mapbox_style="carto-positron")
