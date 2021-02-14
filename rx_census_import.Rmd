@@ -1,0 +1,359 @@
+```{r}
+library(censusapi)
+library(tidyverse)
+```
+
+```{r}
+acs_vars <- listCensusMetadata(
+    name = "acs/acs1", 
+    type = "variables",
+    vintage=2017)
+#View(acs_vars)
+```
+
+BEGIN IMPORT:
+```{r}
+#Import Race/Ethnicity for TN counties
+acs_race <- getCensus(
+  key = CENSUS_KEY,  
+  name = "acs/acs1", 
+  vintage = 2017, 
+  vars = c("group(B03002)"), 
+  region = "county:*",
+  regionin = "state:47")
+```
+
+```{r}
+#Import Educational Attainment for Nashville MSA
+acs_edu <- getCensus(
+  key = CENSUS_KEY,  
+  name = "acs/acs1", 
+  vintage = 2017, 
+  vars = c("group(B15002)"), 
+  region = "county:*",
+  regionin = "state:47")
+```
+
+```{r}
+#Import Age for Nashville MSA
+acs_age <- getCensus(
+  key = CENSUS_KEY,  
+  name = "acs/acs1", 
+  vintage = 2017, 
+  vars = c("group(B01001)"), 
+  region = "county:*",
+  regionin = "state:47")
+```
+
+IMPORT LABELS:
+```{r}
+race_labels <- acs_vars %>%
+  filter(group == 'B03002') %>%
+  select(c('name', 'label'))
+```
+
+```{r}
+edu_labels <- acs_vars %>%
+  filter(group == 'B15002') %>%
+  select(c('name', 'label'))
+```
+
+```{r}
+age_labels <- acs_vars %>%
+  filter(group == 'B01001') %>%
+  select(c('name', 'label'))
+```
+
+REMOVE UNNEEDED COLUMNS:
+```{r}
+acs_race <- acs_race %>%
+  select(c(ends_with('e')))
+acs_edu <- acs_edu %>%
+  select(c(ends_with('e')))
+acs_age <- acs_age %>%
+  select(c(ends_with('e')))
+```
+
+CLEAN LABELS:
+```{r}
+race_labels <- race_labels %>% mutate(label = str_replace_all(string = label, pattern = 'Estimate!!Total:!!', replacement = ''))
+edu_labels <- edu_labels %>% mutate(label = str_replace_all(string = label, pattern = 'Estimate!!Total:!!', replacement = ''))
+age_labels <- age_labels %>% mutate(label = str_replace_all(string = label, pattern = 'Estimate!!Total:!!', replacement = ''))
+race_labels <- race_labels %>% mutate(label = str_replace_all(string = label, pattern = '!!', replacement = ''))
+edu_labels <- edu_labels %>% mutate(label = str_replace_all(string = label, pattern = '!!', replacement = ''))
+age_labels <- age_labels %>% mutate(label = str_replace_all(string = label, pattern = '!!', replacement = ''))
+```
+
+REARRANGE LABELS TO MATCH CENSUS IMPORT ORDER:
+```{r}
+race_labels <- arrange(race_labels, name)
+edu_labels <- arrange(edu_labels, name)
+age_labels <- arrange(age_labels, name)
+```
+
+CREATING LOOKUP VECTOR:
+```{r}
+lookup_vector_race <- race_labels$label
+lookup_vector_race <- append(lookup_vector_race, "Location")
+lookup_vector_edu <- edu_labels$label
+lookup_vector_edu <- append(lookup_vector_edu, "Location")
+lookup_vector_age <- age_labels$label
+lookup_vector_age <- append(lookup_vector_age, "Location")
+```
+
+REPLACING LABELS:
+```{r}
+rownames(race_labels) <- NULL
+rownames(edu_labels) <- NULL
+rownames(age_labels) <- NULL
+```
+
+```{r}
+colnames(acs_race) <- lookup_vector_race
+colnames(acs_edu) <- lookup_vector_edu
+colnames(acs_age) <- lookup_vector_age
+```
+
+VIEW DATAFRAMES
+```{r}
+View(acs_age)
+View(acs_edu)
+View(acs_race)
+```
+
+MATH OUT THE COLUMNS TO GET CORRECT CATEGORIES, THEN CLEAN TO GET FINAL DATAFRAMES
+START WITH AGE DATA
+```{r}
+#colnames(acs_age)
+View(acs_age)
+```
+
+SUBSET TO MALE AND FEMALE, PREPARE TO CONCATENATE
+```{r}
+#Pull out columns with Female Data
+age_female <- acs_age %>%
+  select(c(contains('Female')))
+#Rename to column names that will match names for Male Data
+names(age_female) = sub('Female', 'Total', names(age_female))
+
+#Follow same process, but for Male Data
+age_male <- acs_age %>%
+  select(-c('EstimateTotal', 'Location', contains('Female')))
+names(age_male) = sub('Male', 'Total', names(age_male))
+```
+
+CONCATENATE MALE AND FEMALE
+```{r}
+age_df <- rbind(age_male, age_female)
+```
+
+SUM ROWS TO CORRECT CATEGORIES, REMOVE UNNEEDED ROWS:
+```{r}
+#Add columns to match sample corporation data, then remove original columns
+age_df <- age_df %>%
+  mutate(
+    age_under_20_years = rowSums(age_df[, c(2:6)]),
+    age_20_29_years = rowSums(age_df[, c(7:10)]), 
+    age_30_39_years = rowSums(age_df[, c(11:12)]),
+    age_40_49_years = rowSums(age_df[, c(13:14)]),
+    age_50_59_years = rowSums(age_df[, c(15:16)]),
+    age_60_years_and_over = rowSums(age_df[, c(17:24)]),
+    ) %>%
+  select(-c(2:24))
+```
+
+CREATE A ROW FOR TOTALS, CONCATENATE TO AGE_DF
+```{r}
+Total_age <- data.frame(colSums(age_df[,]))
+```
+
+```{r}
+Total_age <- data.frame(t(Total_age))
+```
+
+```{r}
+colnames(Total_age) <- colnames(age_df)
+age_df <- rbind(age_df, Total_age)
+```
+
+RENAME AND REORDER ROWS, COLUMNS
+```{r}
+age_df$order <- c(2,3,1)
+age_df <- age_df %>% 
+  arrange(order) %>%
+  select(-order)
+age_df$gender <- c('Total', 'Male', 'Female')
+age_df <- age_df[c(8,1,2,3,4,5,6,7)] %>%
+  filter(gender == 'Total')
+rownames(age_df) <- c('Total')
+```
+
+```{r}
+#View(age_female)
+#View(age_male)
+View(age_df)
+```
+
+MATH OUT THE COLUMNS TO GET CORRECT CATEGORIES, THEN CLEAN TO GET FINAL DATAFRAMES
+CONTINUE WITH EDUCATION DATA
+
+SUBSET TO MALE AND FEMALE, PREPARE TO CONCATENATE
+```{r}
+#Follow same steps as above, with age data
+edu_female <- acs_edu %>%
+  select(c(contains('Female')))
+names(edu_female) = sub('Female', 'Total', names(edu_female))
+
+edu_male <- acs_edu %>%
+  select(-c('EstimateTotal:', 'Location', contains('Female')))
+names(edu_male) = sub('Male', 'Total', names(edu_male))
+```
+
+CONCATENATE MALE AND FEMALE
+```{r}
+edu_df <- rbind(edu_male, edu_female)
+```
+
+SUM ROWS TO CORRECT CATEGORIES, REMOVE UNNEEDED ROWS:
+```{r}
+edu_df <- edu_df %>%
+  mutate(
+    no_high_school_diploma = rowSums(edu_df[, c(2:9)]),
+    #high_school_graduate = edu_df[10], 
+    some_college_no_degree = rowSums(edu_df[, c(11:12)]),
+    #associates_degree = edu_df[13], 
+    #bachelors_degree = edu_df[14], 
+    #masters_degree = edu_df[15], 
+    #professional_degree = edu_df[16],
+    #doctorate_degree = edu_df[17]
+    ) %>%
+  select(-c(2:9, 11:12))
+edu_df <- edu_df[c(1,8,2,9,3,4,5,6,7)]
+colnames(edu_df) <- c('total',
+                      'no_high_school_diploma',
+                      'high_school_graduate',
+                      'some_college_no_degree',
+                      'associates_degree',
+                      'bachelors_degree',
+                      'masters_degree',
+                      'professional_degree',
+                      'doctorate_degree')
+```
+
+
+CREATE A ROW FOR TOTALS, CONCATENATE TO AGE_DF
+```{r}
+Total_edu <- data.frame(colSums(edu_df[,]))
+```
+
+```{r}
+Total_edu <- data.frame(t(Total_edu))
+```
+
+```{r}
+colnames(Total_edu) <- colnames(edu_df)
+edu_df <- rbind(edu_df, Total_edu)
+```
+
+RENAME AND REORDER ROWS
+```{r}
+edu_df$order <- c(2,3,1)
+edu_df <- edu_df %>% 
+  arrange(order) %>%
+  select(-order)
+edu_df$gender <- c('Total', 'Male', 'Female')
+edu_df <- edu_df[c(10,1,2,3,4,5,6,7,8,9)]
+rownames(edu_df) <- c('Total', 'Male', 'Female')
+```
+
+
+```{r}
+#View(edu_female)
+#View(edu_male)
+#View(edu_df)
+#View(acs_edu)
+```
+
+
+CONTINUE CLEANING WITH RACE DATA SET
+
+SUBSET TO NOT HISP/LAT VS HISP/LAT, PREPARE TO CONCATENATE
+```{r}
+#Follow same steps as above, but now splitting data between Hispanic/Latino and Non
+race_not <- acs_race %>%
+  select(c(contains('Not')))
+names(race_not) = sub('Not Hispanic or Latino:', '', names(race_not))
+race_hisp <- acs_race %>%
+  select(-c('EstimateTotal:', 'Location', contains('Not')))
+names(race_hisp) = sub('Hispanic or Latino:', '', names(race_hisp))
+```
+
+```{r}
+#renaming first column to total
+colnames(race_not)[colnames(race_not) == ''] <- 'Total'
+colnames(race_hisp)[colnames(race_hisp) == ''] <- 'Total'
+```
+
+CONCATENATE MALE AND FEMALE
+```{r}
+race_df <- rbind(race_not, race_hisp)
+```
+
+CREATE A ROW FOR TOTALS, CONCATENATE TO AGE_DF
+```{r}
+Total_race <- data.frame(colSums(race_df[,]))
+```
+
+```{r}
+Total_race <- data.frame(t(Total_race))
+```
+
+```{r}
+colnames(Total_race) <- colnames(race_df)
+race_df <- rbind(race_df, Total_race)
+```
+
+RENAME AND REORDER ROWS
+```{r}
+race_df$order <- c(2,3,1)
+race_df <- race_df %>% 
+  arrange(order) %>%
+  select(-order)
+race_df$ethnicity <- c('Total', 'Not_Hispanic_or_Latino', 'Hispanic_or_Latino')
+race_df <- race_df[c(11,1,2,3,4,5,6,7,8,9,10)]
+rownames(race_df) <- c('Total', 'Not_Hispanic_or_Latino', 'Hispanic_or_Latino')
+colnames(race_df) <- c('ethnicity',
+                       'total',
+                       'white',
+                       'black_or_african_american',
+                       'american_indian_or_alaska_native',
+                       'asian',
+                       'native_hawaiian_or_pacific_islander',
+                       'other_race',
+                       'two_or_more_races',
+                       'two_or_more_races_including_other',
+                       'two_or_more_races_excluding_other_and_three_or_more')
+```
+
+
+```{r}
+#View(race_female)
+#View(race_male)
+#View(race_df)
+#View(acs_race)
+```
+
+```{r}
+census_df <- list(age_df, race_df, edu_df)
+```
+
+```{r}
+#saveRDS(census_df, 'census_df.rds')
+```
+`
+
+
+
+
+
+
