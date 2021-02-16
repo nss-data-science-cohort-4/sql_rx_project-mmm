@@ -8,6 +8,7 @@ import numpy as np
 import plotly.graph_objects as go
 import json
 
+
 from sqlalchemy import create_engine
 # getting data from git
 q2_url ='https://raw.githubusercontent.com/nss-data-science-cohort-4/sql_rx_project-mmm/mg_opioid_branch/opioid_zip_codes.csv'
@@ -291,7 +292,7 @@ fig.update_layout(
 fig
 
 
-# question 4
+
 st.header('question 4')
 st.subheader('Is there an association between rates of opioid prescriptions and overdose deaths by county?')
 mp_q4_fig = px.scatter(df4, x="claims_per_county", y="overdose_deaths", size='population',
@@ -304,33 +305,53 @@ mp_q4_fig.update_layout(
     )
 mp_q4_fig
 
-# question 5
+
 df_5['od_claim_ratio'] = df_5['overdose_deaths'] / df_5['opioid_claims'] * 1000
 st.header('question 5')
 st.subheader('Is there any association between a particular type of opioid and number of overdose deaths?')
 
-@interact(drug = list(df_5['opioid'].unique()))
-def opioid_scatter(drug) :
-    fig = px.scatter(df_5[df_5['opioid'] == drug], x="opioid_percent", y="od_claim_ratio", size='population', 
+
+sorted_unique_opioid = sorted(df_5.opioid.unique())
+selected_opioid__1 = st.sidebar.multiselect('Question 5 drug filter for chart 1', sorted_unique_opioid,default='codeine')
+selected_opioid_2 = st.sidebar.multiselect('Question 5 drug filter for chart 2', sorted_unique_opioid,default='codeine')
+selected_opioid_3 = st.sidebar.multiselect('Question 5 drug filter for chart 3', sorted_unique_opioid,default='codeine')
+selected_opioid_4 = st.sidebar.multiselect('Question 5 drug filter for chart 4', sorted_unique_opioid,default='codeine')
+selected_opioid_5 = st.sidebar.multiselect('Question 5 drug filter for chart 5', sorted_unique_opioid,default='codeine')
+
+df_5_selected_c1 = df_5[df_5.opioid.isin(selected_opioid__1)]
+df_5_selected_c2 = df_5[df_5.opioid.isin(selected_opioid_2)]
+df_5_selected_c3 = df_5[df_5.opioid.isin(selected_opioid_3)]
+df_5_selected_c4 = df_5[df_5.opioid.isin(selected_opioid_4)]
+df_5_selected_c5 = df_5[df_5.opioid.isin(selected_opioid_5)]
+
+st.subheader('Total Claims vs ODs, colored by percent of claims by selected opioid')
+q5_fig = px.scatter(df_5_selected_c1, x="total_claims", y="overdose_deaths", size='population', color='opioid_percent', color_continuous_scale=['lightgray', 'red', 'darkred'], opacity = 1,
+           hover_name="county", size_max=20, trendline='ols', trendline_color_override='orange')
+q5_fig
+
+st.subheader('% Claims of Selected Opioid vs. Total ODs')
+fig_5_chart2 = px.scatter(df_5_selected_c2, x="opioid_claims", y="overdose_deaths", size='population', 
+                     color = 'opioid_percent', color_continuous_scale=['darkgray', 'red'], opacity = 1,
+                     hover_name="county", trendline='ols', trendline_color_override='orange')
+fig_5_chart2
+
+st.subheader('Total Claims by Selected Opioid vs. OD deaths per claims.')
+fig_5_chart3 =px.scatter(df_5_selected_c3, x="opioid_claims", y="od_claim_ratio", size='population', 
+                     color = 'opioid_percent', color_continuous_scale=['darkgray', 'red'], opacity = 1,
+                     hover_name="county", trendline='ols', trendline_color_override='orange')
+
+fig_5_chart3
+st.subheader('% Claims of Selected Opioid vs. ODs per 1,000 opioid prescriptions')
+fig_5_chart4 = px.scatter(df_5_selected_c4, x="opioid_percent", y="od_claim_ratio", size='population', 
                      color = 'opioid_percent', color_continuous_scale=['darkgray', 'red'], opacity = 1,
                      hover_name="county", trendline='ols', trendline_color_override='orange', range_x = [0,75])
-    fig.update_layout(
-        title={
-        'text':"Opioid Claims vs. Overdose Deaths in Tennessee (2017)",
-        'y':0.95,
-        'x':0.5,
-        'xanchor': 'center',
-        'yanchor': 'top'},
-        xaxis_title="Percent Claims per Selected Opioid",
-        yaxis_title="County Overdose Deaths by 1,000 Prescriptions"
-        )
-    fig
 
-'''sorted_unique_opioid = sorted(opioid_df_5.opioid.unique())
-selected_opioid = st.sidebar.multiselect('Question 5 drug filter', sorted_unique_opioid,default='codeine')
+fig_5_chart4
 
-df_5_selected = opioid_df_5[opioid_df_5.opioid.isin(selected_opioid)]
+st.subheader('Percent Claims by selected opioid vs Total Overdose Deaths')
+fig_5_chart5 =px.scatter(df_5_selected_c5, x="opioid_percent", y="overdose_deaths", size='population', 
+                     color = 'opioid_percent', color_continuous_scale=['darkgray', 'red'], opacity = 1,
+                     hover_name="county", trendline='ols', trendline_color_override='orange')
+fig_5_chart5
 
-q5_fig = px.scatter(df_5_selected, x="total_claims", y="overdose_deaths", size='population', color='opioid_percent',
-           hover_name="county", size_max=20, trendline='ols', trendline_color_override='orange')
-q5_fig'''
+st.header('THE END')
