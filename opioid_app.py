@@ -242,7 +242,9 @@ df_selected_drugs = q2_df[q2_df.drug_name.isin(selected_drug)]
 q2_treefig = px.treemap(q2_df, path=['nppes_provider_zip5', 'drug_name'], values='total_claim',hover_data =['City'])
 q2_treefig
 
+st.markdown('The top 3 cities are ** Nashville, Kingsport, and Johnson City**.')
 
+st.subheader('Taking a look at Methadone HCL')
 q2_figS = px.treemap(df_selected_drugs, path=['nppes_provider_zip5', 'drug_name'], values='total_claim',hover_data =['City'])
 q2_figS
 
@@ -354,4 +356,5 @@ fig_5_chart5 =px.scatter(df_5_selected_c5, x="opioid_percent", y="overdose_death
                      hover_name="county", trendline='ols', trendline_color_override='orange')
 fig_5_chart5
 
-st.header('THE END')
+
+st.markdown("![Alt Text](https://media.giphy.com/media/AkLGHCYGv43uw/giphy.gif)") 
